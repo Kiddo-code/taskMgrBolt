@@ -53,6 +53,15 @@ export default function Login() {
             Sign up
           </a>
         </p>
+
+        <p className="text-center text-sm text-gray-600 mt-4">
+          <a
+            href="/"
+            className="text-gray-600 hover:text-gray-800 focus:outline-none focus:underline"
+          >
+            Back to Home
+          </a>
+        </p>
       </div>
     </main>
   );
