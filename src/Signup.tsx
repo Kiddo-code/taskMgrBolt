@@ -1,4 +1,66 @@
+import { useState } from 'react';
+import { supabase } from './lib/supabase';
+
 export default function Signup() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name,
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.user) {
+        setSuccess(true);
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 2000);
+      }
+    } catch (error: any) {
+      setError(error.message || 'An error occurred during signup');
+      setLoading(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <main className="min-h-screen w-full bg-gradient-to-b from-sky-100 via-sky-200 to-sky-300 flex items-center justify-center p-4">
+        <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-xl p-10 sm:p-12 max-w-md w-full text-center">
+          <div className="mb-6">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
+              Thanks for signing up!
+            </h1>
+            <p className="text-gray-600">
+              Redirecting you to your dashboard...
+            </p>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen w-full bg-gradient-to-b from-sky-100 via-sky-200 to-sky-300 flex items-center justify-center p-4">
       <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-xl p-10 sm:p-12 max-w-md w-full">
@@ -10,7 +72,13 @@ export default function Signup() {
           Enter your details to get started.
         </p>
 
-        <form className="space-y-4">
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-xl mb-4">
+            {error}
+          </div>
+        )}
+
+        <form className="space-y-4" onSubmit={handleSignup}>
           <div>
             <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2">
               Name
@@ -18,8 +86,11 @@ export default function Signup() {
             <input
               type="text"
               id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-4 focus:ring-sky-300 focus:border-sky-500 transition-all"
               placeholder="John Doe"
+              required
             />
           </div>
 
@@ -30,8 +101,11 @@ export default function Signup() {
             <input
               type="email"
               id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-4 focus:ring-sky-300 focus:border-sky-500 transition-all"
               placeholder="you@example.com"
+              required
             />
           </div>
 
@@ -42,18 +116,22 @@ export default function Signup() {
             <input
               type="password"
               id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-4 focus:ring-sky-300 focus:border-sky-500 transition-all"
               placeholder="••••••••"
+              required
+              minLength={6}
             />
           </div>
 
-          <a
-            href="/dashboard"
-            aria-label="Sign up and navigate to dashboard"
-            className="block w-full bg-sky-600 text-white font-semibold py-4 px-6 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 text-center focus:outline-none focus:ring-4 focus:ring-sky-300 mt-6"
+          <button
+            type="submit"
+            disabled={loading}
+            className="block w-full bg-sky-600 text-white font-semibold py-4 px-6 rounded-2xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 text-center focus:outline-none focus:ring-4 focus:ring-sky-300 mt-6 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Sign Up
-          </a>
+            {loading ? 'Signing up...' : 'Sign Up'}
+          </button>
         </form>
 
         <p className="text-center text-sm text-gray-600 mt-6">
