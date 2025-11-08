@@ -15,6 +15,12 @@ export default function Signup() {
     setError('');
 
     try {
+      const { data: existingUser } = await supabase
+        .from('auth.users')
+        .select('email')
+        .eq('email', email)
+        .maybeSingle();
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -25,9 +31,18 @@ export default function Signup() {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('already registered')) {
+          throw new Error('This email is already registered. Please login instead.');
+        }
+        throw error;
+      }
 
       if (data.user) {
+        if (data.user.identities && data.user.identities.length === 0) {
+          throw new Error('This email is already registered. Please login instead.');
+        }
+
         setSuccess(true);
         setTimeout(() => {
           window.location.href = '/dashboard';
