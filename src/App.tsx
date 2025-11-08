@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Home from './Home';
 import Login from './Login';
+import Signup from './Signup';
 
 function App() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
@@ -34,6 +35,10 @@ function App() {
 
   if (currentPath === '/login') {
     return <Login />;
+  }
+
+  if (currentPath === '/signup') {
+    return <Signup />;
   }
 
   return <Home />;
