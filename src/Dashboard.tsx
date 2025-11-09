@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
 import { Sparkles } from 'lucide-react';
+import Profile from './Profile';
 
 interface Task {
   id: string;
@@ -251,8 +252,9 @@ export default function Dashboard() {
   };
 
   return (
-    <main className="min-h-screen w-full bg-gradient-to-b from-sky-100 via-sky-200 to-sky-300 flex items-center justify-center p-4">
-      <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-xl p-10 sm:p-12 max-w-4xl w-full">
+    <main className="min-h-screen w-full bg-gradient-to-b from-sky-100 via-sky-200 to-sky-300 p-4">
+      <div className="max-w-7xl mx-auto flex gap-6 items-start justify-center flex-wrap lg:flex-nowrap">
+        <div className="bg-white/80 backdrop-blur-lg rounded-2xl shadow-xl p-10 sm:p-12 w-full lg:flex-1 max-w-4xl order-2 lg:order-1">
         <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 text-center mb-8">
           Your Tasks
         </h1>
@@ -421,6 +423,11 @@ export default function Dashboard() {
             Back to Home
           </a>
         </p>
+        </div>
+
+        <div className="w-full lg:w-auto order-1 lg:order-2 lg:sticky lg:top-4">
+          <Profile />
+        </div>
       </div>
     </main>
   );
