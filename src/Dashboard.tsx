@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Search } from 'lucide-react';
 import Profile from './Profile';
 
 interface Task {
@@ -9,6 +9,7 @@ interface Task {
   priority: 'low' | 'medium' | 'high';
   status: 'pending' | 'in-progress' | 'done';
   created_at: string;
+  similarity?: number;
 }
 
 interface Subtask {
@@ -28,6 +29,9 @@ export default function Dashboard() {
   const [generatingSubtasks, setGeneratingSubtasks] = useState<string | null>(null);
   const [suggestedSubtasks, setSuggestedSubtasks] = useState<Record<string, string[]>>({});
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Task[]>([]);
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
     fetchTasks();
@@ -76,21 +80,84 @@ export default function Dashboard() {
 
     if (!user) return;
 
-    const { error } = await supabase.from('tasks').insert({
+    const { data: insertedTask, error } = await supabase.from('tasks').insert({
       title: newTask,
       priority,
       status: 'pending',
       user_id: user.id,
-    });
+    }).select().single();
 
     if (error) {
       console.error('Error adding task:', error);
     } else {
+      if (insertedTask) {
+        await generateEmbedding(insertedTask.id, insertedTask.title);
+      }
       setNewTask('');
       setPriority('medium');
       fetchTasks();
     }
     setLoading(false);
+  };
+
+  const generateEmbedding = async (taskId: string, taskTitle: string) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-task-embedding`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ taskId, taskTitle }),
+        }
+      );
+    } catch (error) {
+      console.error('Error generating embedding:', error);
+    }
+  };
+
+  const handleSmartSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+
+    setSearching(true);
+    setSearchResults([]);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.error('No session found');
+        return;
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/smart-search`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ query: searchQuery }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Search failed');
+      }
+
+      const data = await response.json();
+      setSearchResults(data.tasks || []);
+    } catch (error) {
+      console.error('Error searching tasks:', error);
+    } finally {
+      setSearching(false);
+    }
   };
 
   const handleUpdateStatus = async (taskId: string, newStatus: 'pending' | 'in-progress' | 'done') => {
@@ -258,6 +325,72 @@ export default function Dashboard() {
         <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 text-center mb-8">
           Your Tasks
         </h1>
+
+        <div className="mb-8">
+          <form onSubmit={handleSmartSearch} className="space-y-4">
+            <div>
+              <label htmlFor="smartSearch" className="block text-sm font-semibold text-gray-700 mb-2">
+                Smart Search
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  id="smartSearch"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1 px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-4 focus:ring-sky-300 focus:border-sky-500 transition-all"
+                  placeholder="Search for similar tasks..."
+                />
+                <button
+                  type="submit"
+                  disabled={searching}
+                  className="flex items-center gap-2 px-6 py-3 bg-sky-600 text-white font-semibold rounded-xl shadow-md hover:bg-sky-700 hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Search size={20} />
+                  {searching ? 'Searching...' : 'Search'}
+                </button>
+              </div>
+            </div>
+          </form>
+
+          {searchResults.length > 0 && (
+            <div className="mt-4 bg-sky-50 rounded-xl p-4 border border-sky-200">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Similar Tasks Found:</h3>
+              <ul className="space-y-2">
+                {searchResults.map((task) => (
+                  <li key={task.id} className="bg-white rounded-lg p-3 shadow-sm border border-sky-100">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-gray-800">{task.title}</p>
+                        <div className="flex gap-2 mt-1 flex-wrap">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${getPriorityColor(task.priority)}`}>
+                            {task.priority.toUpperCase()}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${getStatusColor(task.status)}`}>
+                            {task.status.replace('-', ' ').toUpperCase()}
+                          </span>
+                        </div>
+                      </div>
+                      {task.similarity && (
+                        <span className="text-xs font-semibold text-sky-600">
+                          {Math.round(task.similarity * 100)}% match
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {searchQuery && searchResults.length === 0 && !searching && (
+            <div className="mt-4 bg-gray-50 rounded-xl p-4 border border-gray-200">
+              <p className="text-sm text-gray-600 text-center">
+                No similar tasks found. Try a different search query or add more tasks.
+              </p>
+            </div>
+          )}
+        </div>
 
         <div className="bg-white rounded-xl p-6 mb-8 shadow-sm">
           {tasks.length === 0 ? (
